@@ -23,6 +23,16 @@ var refreshBuffer = Buffer([0])
 var ledLocation = 0
 var offset = 0
 
+function now(unit){
+    var hrTime=process.hrtime(); 
+    switch (unit) {
+    case 'milli':return hrTime[0] * 1000 + hrTime[1] / 1000000;
+    case 'micro':return hrTime[0] * 1000000 + hrTime[1] / 1000;
+    case 'nano':return hrTime[0] * 1000000000 + hrTime[1] ;
+    break;
+    default:return hrTime[0] * 1000000000 + hrTime[1] ;
+    }
+}
 
 function sendFrame() {
     
@@ -36,7 +46,29 @@ function sendFrame() {
 
 
 function drawFrame(){
-    walk()
+    crazy()
+
+    // red   = 200
+    // green = 50
+    // blue  = 200
+    // setAllStatic(red,blue,green)
+
+    // gradientblend()
+}
+
+function setAllStatic(red,blue,green){
+
+     for (var i = 0; i <= (STRIP_LENGTH*3)-3 ; i = i + 3)
+    {
+        try {
+            // console.log(red)
+            stripBuffer.writeUInt8(red, i);
+            stripBuffer.writeUInt8(green, i+1);
+            stripBuffer.writeUInt8(blue, i+2);
+        } catch (e) {
+            console.error("error setting at " + i + " - " + e)
+        }
+    }
 }
 
 function walk(){
@@ -56,60 +88,126 @@ function walk(){
     }
 }
 
+function staticRainbow(){ 
 
-function sine1(){
-
-    // var color = Color('#7743CE').alpha(0.5).lighten(0.5);
-    //Math.sin(Math.PI / 2); // 1
-    
-    stripBuffer.writeUInt8(0, i);
-
-    var frequency = .3;
-    for (var i = 1; i <= BUFFER_LENGTH ; i = i + 3)
+    var frequency = 0.3;
+    for (var i = 0; i <= (STRIP_LENGTH*3)-3 ; i = i + 3)
     {
         red   = Math.sin(frequency*i + 0) * 127 + 128;
         green = Math.sin(frequency*i + 2) * 127 + 128;
         blue  = Math.sin(frequency*i + 4) * 127 + 128;
         try {
             // console.log(red)
-            stripBuffer.writeUInt8(red, i-3);
-            stripBuffer.writeUInt8(green, i-2);
-            stripBuffer.writeUInt8(blue, i-1);
+            stripBuffer.writeUInt8(red, i);
+            stripBuffer.writeUInt8(green, i+1);
+            stripBuffer.writeUInt8(blue, i+2);
         } catch (e) {
-            console.error(e)
+            console.error("error setting at " + i + " - " + e)
         }
     }
+}
 
-    client.send(  stripBuffer.slice(1, CHUNK_SIZE)                , 0, UDP_PACKET_SIZE, PORT, HOST )
-    client.send(  stripBuffer.slice(CHUNK_SIZE, CHUNK_SIZE * 2) , 0, UDP_PACKET_SIZE, PORT, HOST )
-    client.send(  stripBuffer.slice(CHUNK_SIZE*2, CHUNK_SIZE*3) , 0, UDP_PACKET_SIZE, PORT, HOST )
-    client.send(  stripBuffer.slice(CHUNK_SIZE*3, CHUNK_SIZE*4) , 0, UDP_PACKET_SIZE, PORT, HOST )
+function crazy(){
+
+    var timeSecs = now('millis')/1000000000;
+
+    time = timeSecs * 2 % 30;
+
+    var frequency = 0.1;
+    for (var i = 0; i <= (STRIP_LENGTH*3)-3 ; i = i + 3)
+    {
+        red   = Math.sin(frequency*i*time + 0) * 127 + 128;
+        green = Math.sin(frequency*i*time + 2) * 127 + 128;
+        blue  = Math.sin(frequency*i*time + 4) * 127 + 128;
+        try {
+            // console.log(red)
+            stripBuffer.writeUInt8(red, i);
+            stripBuffer.writeUInt8(green, i+1);
+            stripBuffer.writeUInt8(blue, i+2);
+        } catch (e) {
+            console.error("error setting at " + i + " - " + e)
+        }
+    }
 
 
 }
 
-// var client2 = dgram.createSocket('udp4');
-// client2.send(message, 0, message.length, PORT, "127.0.0.1", function(err, bytes) {
-//     if (err) throw err;
-//     console.log('UDP message sent to ' + HOST +':'+ PORT);
-//     client2.close();
-// });
-
-        // for(int i=0; i< numPixels(); i++)
-        // {
-        //     setPixelColor(i, Wheel(((i * 256 / numPixels()) + Index) & 255));
-        // }
-        // show();
-        // Increment();
 
 
-const now=(unit)=>{
-    const hrTime=process.hrtime(); 
-    switch (unit) {
-    case 'milli':return hrTime[0] * 1000 + hrTime[1] / 1000000;
-    case 'micro':return hrTime[0] * 1000000 + hrTime[1] / 1000;
-    case 'nano':return hrTime[0] * 1000000000 + hrTime[1] ;
-    break;
-    default:return hrTime[0] * 1000000000 + hrTime[1] ;
-    }
+var colors = new Array(
+  [62,35,255],
+  [60,255,60],
+  [255,35,98],
+  [45,175,230],
+  [255,0,255],
+  [255,128,0]);
+
+var step = 0;
+//color table indices for: 
+// current color left
+// next color left
+// current color right
+// next color right
+var colorIndices = [0,1,2,3];
+
+//transition speed
+var gradientSpeed = 0.002;
+var colorArray = []
+
+function gradientblend()
+{
+
+	var c0_0 = colors[colorIndices[0]];
+	var c0_1 = colors[colorIndices[1]];
+	var c1_0 = colors[colorIndices[2]];
+	var c1_1 = colors[colorIndices[3]];
+
+	var istep = 1 - step;
+	var r1 = Math.round(istep * c0_0[0] + step * c0_1[0]);
+	var g1 = Math.round(istep * c0_0[1] + step * c0_1[1]);
+	var b1 = Math.round(istep * c0_0[2] + step * c0_1[2]);
+	var color1 = "rgb("+r1+","+g1+","+b1+")";
+
+	var r2 = Math.round(istep * c1_0[0] + step * c1_1[0]);
+	var g2 = Math.round(istep * c1_0[1] + step * c1_1[1]);
+	var b2 = Math.round(istep * c1_0[2] + step * c1_1[2]);
+	var color2 = "rgb("+r2+","+g2+","+b2+")";
+
+	colorArray = generateColorGradientArray([r1,g1,b1],[r2,g2,b2],STRIP_LENGTH)
+
+	
+	step += gradientSpeed;
+	if ( step >= 1 )
+	{
+		step %= 1;
+		colorIndices[0] = colorIndices[1];
+		colorIndices[2] = colorIndices[3];
+		
+		//pick two new target color indices
+		//do not pick the same as the current one
+		colorIndices[1] = ( colorIndices[1] + Math.floor( 1 + Math.random() * (colors.length - 1))) % colors.length;
+		colorIndices[3] = ( colorIndices[3] + Math.floor( 1 + Math.random() * (colors.length - 1))) % colors.length;
+		
+	}
+}
+
+
+
+function generateColorGradientArray(start,end,len){
+    var arr = new Array(len);
+	//Alpha blending amount
+	var alpha = 0.0;
+	
+	for (i = 0; i < len; i++) {
+		var c = [];
+		alpha += (1.0/len);
+		
+		c[0] = start[0] * alpha + (1 - alpha) * end[0];
+		c[1] = start[1] * alpha + (1 - alpha) * end[1];
+		c[2] = start[2] * alpha + (1 - alpha) * end[2];
+
+        arr[i] = c
+		
+	}
+	return arr;
 }
