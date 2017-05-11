@@ -12,7 +12,7 @@ const UDP_PACKET_SIZE = 1 + (CHUNK_SIZE*3) // 1 is so we can fit the action code
 var frameTime = 16.666666
 
 var udpClient = dgram.createSocket('udp4');
-var id = setInterval(drawFrame, frameTime );
+var id = setInterval(drawFrame, frameTime  );
 var id = setInterval(sendFrame, frameTime);
 
 var packetBuffer = Buffer.alloc(UDP_PACKET_SIZE)
@@ -38,19 +38,23 @@ function sendFrame() {
     
     packetBuffer.writeUInt8(1, 0)
     stripBuffer.copy(packetBuffer,1,0);
-    console.log(packetBuffer)
+    //console.log(packetBuffer)
     udpClient.send(packetBuffer, 0, UDP_PACKET_SIZE, PORT, HOST, (err)=>{
         udpClient.send(refreshBuffer, 0, 1, PORT, HOST)
     })
 }
 
-
 function drawFrame(){
-    crazy()
+     //scrollRainbow(0.4,50,true)
 
-    // red   = 200
-    // green = 50
-    // blue  = 200
+    scrollRainbow(0,10,false) //lots of interesting cycling gradients
+    filterWalk(10)
+
+    //staticRainbow();
+
+    // red   = 30
+    // green = 70
+    // blue  = 60
     // setAllStatic(red,blue,green)
 
     // gradientblend()
@@ -83,131 +87,123 @@ function walk(){
     console.log("setting led at location " + ledLocation);
 
     ledLocation = ledLocation + 3;
-    if (ledLocation >= STRIP_LENGTH) {
+    if (ledLocation >= STRIP_LENGTH*3) {
         ledLocation = 0
     }
 }
 
-function staticRainbow(){ 
+function filterWalk(width = 70, speed = 2) {
+
+    ledLocation++
+    if (ledLocation >= STRIP_LENGTH) {
+        ledLocation = 0
+    }
+
+    for (var i = 0 ; i < STRIP_LENGTH; i++ ) {
+        if ( i < ledLocation - width/2  ) {
+            
+            stripBuffer.writeUInt8(0, i*3);
+            stripBuffer.writeUInt8(0, i*3+1);
+            stripBuffer.writeUInt8(0, i*3+2);
+        }
+
+        if ( i > ledLocation + width/2  ) {
+            
+            stripBuffer.writeUInt8(0, i*3);
+            stripBuffer.writeUInt8(0, i*3+1);
+            stripBuffer.writeUInt8(0, i*3+2);
+        }
+    }
+
+}
+
+function filterFade(){
+
+    //read buffer into array 
+
+    for (var i = 0 ; i < strip.length ; i++) {
+        try {
+            // console.log(red)
+            stripBuffer.writeUInt8(strip[i][0], i*3);
+            stripBuffer.writeUInt8(strip[i][1], i*3+1);
+            stripBuffer.writeUInt8(strip[i][2], i*3+2);
+        } catch (e) {
+            console.error("error setting at " + i + " - " + e)
+        }
+    }
+
+}
+function staticRainbow(rainBowWidth = 130){
 
     var frequency = 0.3;
-    for (var i = 0; i <= (STRIP_LENGTH*3)-3 ; i = i + 3)
-    {
-        red   = Math.sin(frequency*i + 0) * 127 + 128;
-        green = Math.sin(frequency*i + 2) * 127 + 128;
-        blue  = Math.sin(frequency*i + 4) * 127 + 128;
-        try {
-            // console.log(red)
-            stripBuffer.writeUInt8(red, i);
-            stripBuffer.writeUInt8(green, i+1);
-            stripBuffer.writeUInt8(blue, i+2);
-        } catch (e) {
-            console.error("error setting at " + i + " - " + e)
-        }
-    }
+    var strip =  makeColorGradient(1/rainBowWidth,1/rainBowWidth,1/rainBowWidth);
+    // console.log(strip[0],strip[239]);
+    updateLeds(strip)  
+
 }
 
-function crazy(){
+function makeColorGradient( frequency1 = 0.3, 
+                            frequency2 = 0.3, 
+                            frequency3 = 0.3,
+                            phase1 = 0, 
+                            phase2 = 2, 
+                            phase3 = 4,
+                            center = 128, 
+                            width = 127, 
+                            len = 240
+                            ){
+    var grad = []
+
+    for (var i = 0; i < len; ++i)
+    {
+        var red = Math.sin(frequency1*i + phase1) * width + center;
+        var grn = Math.sin(frequency2*i + phase2) * width + center;
+        var blu = Math.sin(frequency3*i + phase3) * width + center;
+        grad.push([red,grn,blu])
+    }
+    return grad
+}
+
+function scrollRainbow(scrollSpeed = 1, rainBowWidth = 0.3 , warp = false){
+    
+    //scrollspeed 0.4 is where the scroll gets noticable
+    //30 is still perceptible
+    // 60 is flashing, but you see the colours when you blink
 
     var timeSecs = now('millis')/1000000000;
+    time = timeSecs * scrollSpeed;  
 
-    time = timeSecs * 2 % 30;
+    var rWarp = 1;
+    var gWarp = 1;
+    var bWarp = 1;
 
-    var frequency = 0.1;
-    for (var i = 0; i <= (STRIP_LENGTH*3)-3 ; i = i + 3)
-    {
-        red   = Math.sin(frequency*i*time + 0) * 127 + 128;
-        green = Math.sin(frequency*i*time + 2) * 127 + 128;
-        blue  = Math.sin(frequency*i*time + 4) * 127 + 128;
+    if (warp){
+        rWarp = 1;
+        gWarp = 1.1;
+        bWarp = 0.95;
+    }
+
+    var strip =  makeColorGradient(     2*Math.PI/rainBowWidth*(0.3+rWarp-0.7)*rWarp,
+                                        2*Math.PI/rainBowWidth*(0.3+gWarp-0.7)*gWarp,
+                                        2*Math.PI/rainBowWidth*(0.3+bWarp-0.7)*bWarp,
+                                        0+time,
+                                        2+time,
+                                        4+time
+                                        // 100,
+                                        // 55
+                                    );
+    updateLeds(strip)                              
+}
+
+function updateLeds(strip){
+    for (var i = 0 ; i < strip.length ; i++) {
         try {
             // console.log(red)
-            stripBuffer.writeUInt8(red, i);
-            stripBuffer.writeUInt8(green, i+1);
-            stripBuffer.writeUInt8(blue, i+2);
+            stripBuffer.writeUInt8(strip[i][0], i*3);
+            stripBuffer.writeUInt8(strip[i][1], i*3+1);
+            stripBuffer.writeUInt8(strip[i][2], i*3+2);
         } catch (e) {
             console.error("error setting at " + i + " - " + e)
         }
     }
-
-
-}
-
-
-
-var colors = new Array(
-  [62,35,255],
-  [60,255,60],
-  [255,35,98],
-  [45,175,230],
-  [255,0,255],
-  [255,128,0]);
-
-var step = 0;
-//color table indices for: 
-// current color left
-// next color left
-// current color right
-// next color right
-var colorIndices = [0,1,2,3];
-
-//transition speed
-var gradientSpeed = 0.002;
-var colorArray = []
-
-function gradientblend()
-{
-
-	var c0_0 = colors[colorIndices[0]];
-	var c0_1 = colors[colorIndices[1]];
-	var c1_0 = colors[colorIndices[2]];
-	var c1_1 = colors[colorIndices[3]];
-
-	var istep = 1 - step;
-	var r1 = Math.round(istep * c0_0[0] + step * c0_1[0]);
-	var g1 = Math.round(istep * c0_0[1] + step * c0_1[1]);
-	var b1 = Math.round(istep * c0_0[2] + step * c0_1[2]);
-	var color1 = "rgb("+r1+","+g1+","+b1+")";
-
-	var r2 = Math.round(istep * c1_0[0] + step * c1_1[0]);
-	var g2 = Math.round(istep * c1_0[1] + step * c1_1[1]);
-	var b2 = Math.round(istep * c1_0[2] + step * c1_1[2]);
-	var color2 = "rgb("+r2+","+g2+","+b2+")";
-
-	colorArray = generateColorGradientArray([r1,g1,b1],[r2,g2,b2],STRIP_LENGTH)
-
-	
-	step += gradientSpeed;
-	if ( step >= 1 )
-	{
-		step %= 1;
-		colorIndices[0] = colorIndices[1];
-		colorIndices[2] = colorIndices[3];
-		
-		//pick two new target color indices
-		//do not pick the same as the current one
-		colorIndices[1] = ( colorIndices[1] + Math.floor( 1 + Math.random() * (colors.length - 1))) % colors.length;
-		colorIndices[3] = ( colorIndices[3] + Math.floor( 1 + Math.random() * (colors.length - 1))) % colors.length;
-		
-	}
-}
-
-
-
-function generateColorGradientArray(start,end,len){
-    var arr = new Array(len);
-	//Alpha blending amount
-	var alpha = 0.0;
-	
-	for (i = 0; i < len; i++) {
-		var c = [];
-		alpha += (1.0/len);
-		
-		c[0] = start[0] * alpha + (1 - alpha) * end[0];
-		c[1] = start[1] * alpha + (1 - alpha) * end[1];
-		c[2] = start[2] * alpha + (1 - alpha) * end[2];
-
-        arr[i] = c
-		
-	}
-	return arr;
 }
