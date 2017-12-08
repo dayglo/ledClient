@@ -4,12 +4,12 @@ var Color = require('color');
 
 var dgram = require('dgram');
 
-const CHUNK_SIZE = 240
-const STRIP_LENGTH = 240
+const CHUNK_SIZE = 450 
+const STRIP_LENGTH = 600
 const CHUNKS_PER_STRIP = (STRIP_LENGTH / CHUNK_SIZE)
 const UDP_PACKET_SIZE = 1 + (CHUNK_SIZE*3) // 1 is so we can fit the action code in at the beginning of the packet.
 
-var frameTime = 16.666666
+var frameTime = 33.3333333
 
 var udpClient = dgram.createSocket('udp4');
 var id = setInterval(drawFrame, frameTime  );
@@ -47,18 +47,26 @@ function sendFrame() {
 function drawFrame(){
      //scrollRainbow(0.4,50,true)
 
-    scrollRainbow(0,10,false) //lots of interesting cycling gradients
-    filterWalk(10)
+
+
+    //scrollRainbow(5,15 ,true) //lots of interesting cycling gradients
+    //filterWalk(20)
 
     //staticRainbow();
 
-    // red   = 30
-    // green = 70
-    // blue  = 60
+    // red   = 100
+    // green = 50
+    // blue  = 30
     // setAllStatic(red,blue,green)
+    //  filterWalk(30)
 
     // gradientblend()
+
+    walk(10)
 }
+
+
+
 
 function setAllStatic(red,blue,green){
 
@@ -75,7 +83,7 @@ function setAllStatic(red,blue,green){
     }
 }
 
-function walk(){
+function walk(skip = 0){
 
     blankBuffer.copy(stripBuffer);
 
@@ -86,7 +94,7 @@ function walk(){
 
     console.log("setting led at location " + ledLocation);
 
-    ledLocation = ledLocation + 3;
+    ledLocation = (ledLocation + 3) + (skip * 3);
     if (ledLocation >= STRIP_LENGTH*3) {
         ledLocation = 0
     }
