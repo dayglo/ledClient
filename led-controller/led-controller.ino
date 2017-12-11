@@ -253,11 +253,12 @@ void runloop() {
     udp.read(packetBuffer, UDP_PACKET_SIZE);
 
     action = packetBuffer[0];
-    Serial.println("action byte: " + String(action) );
+ 
    
     if (action == 1) {
-      Serial.println("======================================");
+      
       if (DEBUG_MODE) { // If Debug mode is on print some stuff
+        Serial.println("======================================");
         Serial.println("frameindex: " + String(frameIndex) );
         Serial.println("frameNumber: " + String(frameNumber) );
         Serial.println("received packetSize: " + String(packetSize) );

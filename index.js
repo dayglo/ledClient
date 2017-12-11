@@ -15,20 +15,20 @@ const STRIP_BUFFER_LENGTH = STRIP_LENGTH * BYTES_PER_LED // we'll use 3 to save 
 
 
 const MTU = 1400
-const PACKET_SIZE = MTU - 1
-const CHUNK_SIZE = Math.floor(PACKET_SIZE / BYTES_PER_LED)
 
+const PACKET_SIZE = (MTU - 1) - ((MTU - 1) % BYTES_PER_LED)
+
+//const PACKET_SIZE = MTU - 1   
+const CHUNK_SIZE = Math.floor(PACKET_SIZE / BYTES_PER_LED)
 const PACKETS_PER_FRAME = Math.ceil((STRIP_BUFFER_LENGTH / PACKET_SIZE))
 
 
-
-
-
-var frameTime = 17    
-
+// var frameTime = 4000  
+var frameTime = 33.3333333
 
 var udpClient = dgram.createSocket('udp4');
-var id = setInterval(drawFrame, frameTime);
+
+var id = setInterval(drawFrame, frameTime / 2);
 var id = setInterval(sendFrame, frameTime);
 
 var packetBuffer = Buffer.alloc(MTU)
@@ -53,7 +53,8 @@ function log(level,t) {
 }
 
 log(1,`${STRIP_LENGTH} Leds, taking up ${STRIP_BUFFER_LENGTH} bytes. Sending ${PACKETS_PER_FRAME} packets per frame. Each packet will be ${PACKET_SIZE}, storing ${CHUNK_SIZE} leds.`)
-
+drawFrame();
+sendFrame();
 
 function now(unit){
     var hrTime=process.hrtime(); 
@@ -81,7 +82,7 @@ function sendPacket(packetNumber) {
             
             blankPacketBuffer.copy(packetBuffer);
             packetBuffer.writeUInt8(packetNumber, 0) //set the first byte to the ACTION byte
-            stripBuffer.copy(packetBuffer,1, currentOffset, currentOffset + PACKET_SIZE);
+            stripBuffer.copy(packetBuffer,1, currentOffset, currentOffset + PACKET_SIZE );
            
             log(1,"   frame:" + frameCount + "     packet:" + packetNumber + "   offset: " + currentOffset)
             log(1,packetBuffer.toString('hex').substr(0,100))
@@ -117,31 +118,43 @@ function sendFrame() {
 }
 
 function drawFrame(){
-     //scrollRainbow(0.4,50,true)
+    scrollRainbow(10,100,false)
     //scrollRainbow(5,15 ,true) //lots of interesting cycling gradients
-    //filterWalk(20)
+    // filterWalk(20)
 
     //staticRainbow();
 
-    red   = 50
-    green = 50
-    blue  = 50  
-    setAllStatic(red,blue,green)
+    // red   = 50
+    // green = 50
+    // blue  = 50  
+    // setAllStatic(red,blue,green)
     filterWalk(10)
 
     // gradientblend()
 
-    // //chunkTest(0)
-    // var c = 100
-    // setSingleLed(c,50,255,50)
-    // setSingleLed(c+1,50,255,50)
-    // setSingleLed(c+2,50,255,50)
-    // setSingleLed(c+3,50,255,50)
-    // setSingleLed(c+4,255,0,255)
-    // setSingleLed(c+5,50,255,50)
-    // setSingleLed(c+6,50,255,50)
-    // setSingleLed(c+7,50,255,50)
-    // setSingleLed(c+8,50,255,50)
+    //chunkTest(0)
+    // var c = 460
+    // setSingleLed(c,   255,255,255)
+    // setSingleLed(c+1, 50,50,50)
+    // setSingleLed(c+2, 0,0,0)
+    // setSingleLed(c+3, 50,50,50)
+    // setSingleLed(c+4, 0,0,0)
+    // setSingleLed(c+5, 50,50,50)
+    // setSingleLed(c+6, 0,0,0)
+    // setSingleLed(c+7, 50,50,50)
+    // setSingleLed(c+8, 0,0,0)
+    // setSingleLed(c+9, 50,50,50)
+    // setSingleLed(c+10,0,0,0)
+    // setSingleLed(c+11,50,50,50)
+    // setSingleLed(c+12,0,0,0)
+    // setSingleLed(c+13,50,50,50)
+    // setSingleLed(c+14,0,0,0)
+    // setSingleLed(c+15,50,50,50)
+    // setSingleLed(c+16,0,0,0)
+    // setSingleLed(c+17,50,50,50)
+    // setSingleLed(c+18,0,0,0)
+    // setSingleLed(c+19,255,255,255)
+
 }
 
 
@@ -179,7 +192,7 @@ function setAllStatic(red,blue,green){
 }
 
 function setSingleLed(ledIndex,r,g,b) {
-    log(2,`setting led ${ledIndex} to ${r} ${b} ${g}`)
+    //log(2,`setting led ${ledIndex} to ${r} ${b} ${g}`)
     var byte = ledIndex * BYTES_PER_LED;
     stripBuffer.writeUInt8(r, byte);
     stripBuffer.writeUInt8(r, byte+1);
@@ -248,7 +261,7 @@ function makeColorGradient( frequency1 = 0.3,
                             phase3 = 4,
                             center = 128, 
                             width = 127, 
-                            len = 240
+                            len = STRIP_LENGTH
                             ){
     var grad = []
 
