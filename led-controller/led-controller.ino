@@ -11,9 +11,11 @@
 // at 30 fps I can go past this number succesfully though.
 #define PIXELS_PER_STRIP 600 //240
 
-// This needs to be evenly divisible by PIXLES_PER_STRIP.
 // This represents how large our packets are that we send from our software source IN TERMS OF LEDS.
-#define CHUNK_SIZE 450  //240
+#define CHUNK_SIZE 466  //240
+
+#define BYTES_PER_LED = 3
+ 
 #define MAX_ACTION_BYTE 4  //maximum number of chunks per frame in order to validate we do not receive a wrong index when there are communciation errors
 
 // Dynamically limit brightness in terms of amperage.
@@ -39,7 +41,7 @@ char pass[] = "3cccgpMRfqyf";       // your network password
 
 // If this is set to 1, a lot of debug data will print to the console.
 // Will cause horrible stuttering meant for single frame by frame tests and such.
-#define DEBUG_MODE 1 //MDB
+#define DEBUG_MODE 0 //MDB
 #define PACKETDROP_DEBUG_MODE 0
 
 
@@ -251,14 +253,18 @@ void runloop() {
     udp.read(packetBuffer, UDP_PACKET_SIZE);
 
     action = packetBuffer[0];
-
-    if (DEBUG_MODE) { // If Debug mode is on print some stuff
-      Serial.println("action byte: " + String(action) );
-      Serial.println("frameindex: " + String(frameIndex) );
-      Serial.println("frameNumber: " + String(frameNumber) );
-      Serial.println("received packetSize: " + String(packetSize) );
-      Serial.println("configured UDP_PACKET_SIZE: " + String(UDP_PACKET_SIZE) );
-
+    Serial.println("action byte: " + String(action) );
+   
+    if (action == 1) {
+      Serial.println("======================================");
+      if (DEBUG_MODE) { // If Debug mode is on print some stuff
+        Serial.println("frameindex: " + String(frameIndex) );
+        Serial.println("frameNumber: " + String(frameNumber) );
+        Serial.println("received packetSize: " + String(packetSize) );
+        Serial.println("configured UDP_PACKET_SIZE: " + String(UDP_PACKET_SIZE) );
+        Serial.println("CHUNK_SIZE: " + String(CHUNK_SIZE));
+  
+      }
     }
 
     if (action != 0)
@@ -269,21 +275,18 @@ void runloop() {
       framesMD[frameIndex].arrivedAt = arrivedAt;
 
       // Figure out what our starting offset is.
-      const uint16_t initialOffset = CHUNK_SIZE * (action - 1);
+      uint16_t initialOffset = CHUNK_SIZE * (action - 1);
 
       if (DEBUG_MODE) { // If Debug mode is on print some stuff
-        Serial.println("  action not zero.");
-        Serial.println("    CHUNK_SIZE: " + String(CHUNK_SIZE));
-        Serial.println("    ACTION: " + String(action - 1));
-
+        Serial.println("    action byte: " + String(action) );
         Serial.println("    Init_offset: " + String(initialOffset));
-        Serial.print("    initialOffset + CHUNK_SIZE: ");
-        Serial.println((initialOffset + CHUNK_SIZE));
 
-        Serial.println("    Packetbuffer:");
-        for (int j = 0; j < UDP_PACKET_SIZE; j = j + 1) {
-          Serial.print (":" + String(packetBuffer[j]));
-        }
+//        Serial.print("    ");
+//        Serial.println("    Packetbuffer:"); //print first 20 bytes
+//        for (int j = 0; j < UDP_PACKET_SIZE; j = j + 1) {
+//          Serial.println (String(j) + ":" + String(packetBuffer[j]));
+//        }
+//        Serial.println("");
 
 
       }
@@ -291,30 +294,37 @@ void runloop() {
       // loop through our recently received packet, and assign the corresponding
       // RGB values to their respective places in the strip.
 
-      if (action <= MAX_ACTION_BYTE) { //check the ation byte is within limits
-        uint16_t led = 0;
-        for (uint16_t i = 1; i < CHUNK_SIZE * 3;) {
+      uint16_t led = 0;
+      for (uint16_t i = 1; i < CHUNK_SIZE * 3;) {
 
-          r = packetBuffer[i++];
-          g = packetBuffer[i++];
-          b = packetBuffer[i++];
+//        Serial.print (String(i) + "--- ");
 
-          //strip.SetPixelColor(i + initialOffset, RgbColor(r, g, b)); // this line does not use gamma correction
-          strip.SetPixelColor(initialOffset + led++, colorGamma.Correct(RgbColor(r, g, b))); // this line uses gamma correction
 
-          milliAmpsCounter += (r + g + b); // increment our milliamps counter accordingly for use later.
-        }
+        r = packetBuffer[i++];
+//        Serial.print(String(r) + ":");
+        g = packetBuffer[i++];
+//        Serial.print(String(g) + ":");
+        b = packetBuffer[i++];
+//        Serial.println(String(b) + ":")
+;
+       
+
+        //strip.SetPixelColor(i + initialOffset, RgbColor(r, g, b)); // this line does not use gamma correction
+        strip.SetPixelColor(initialOffset + led++, colorGamma.Correct(RgbColor(r, g, b))); // this line uses gamma correction
+
+        milliAmpsCounter += (r + g + b); // increment our milliamps counter accordingly for use later.
       }
+
 
       // if we're debugging packet drops, modify reply buffer.
       if (PACKETDROP_DEBUG_MODE) {
         ReplyBuffer[action] = 1;
       }
 
-      if (packetSize != UDP_PACKET_SIZE)
-      { // if our packet was not full, it means it was also a terminating update packet.
-        action = 0;
-      }
+//      if (packetSize != UDP_PACKET_SIZE)
+//      { // if our packet was not full, it means it was also a terminating update packet.
+//        action = 0;
+//      }
       framesMD[frameIndex].packetSize = packetSize;
       framesMD[frameIndex].power = 0;
       framesMD[frameIndex].adjustedPower = 0;

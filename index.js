@@ -1,27 +1,59 @@
 var PORT = 2390;
-var HOST = '192.168.0.51';
+ var HOST = '192.168.0.51';
+//var HOST = '127.0.0.1';
 var Color = require('color');
 
 var dgram = require('dgram');
 
-const CHUNK_SIZE = 450 
-const STRIP_LENGTH = 600
-const CHUNKS_PER_STRIP = (STRIP_LENGTH / CHUNK_SIZE)
-const UDP_PACKET_SIZE = 1 + (CHUNK_SIZE*3) // 1 is so we can fit the action code in at the beginning of the packet.
 
-var frameTime = 33.3333333
+
+//dont forget that a led needs more than one byte! chunks are strip chunks, packets are data chunks
+
+const STRIP_LENGTH = 600
+const BYTES_PER_LED = 3
+const STRIP_BUFFER_LENGTH = STRIP_LENGTH * BYTES_PER_LED // we'll use 3 to save space, never turning the 4th one on
+
+
+const MTU = 1400
+const PACKET_SIZE = MTU - 1
+const CHUNK_SIZE = Math.floor(PACKET_SIZE / BYTES_PER_LED)
+
+const PACKETS_PER_FRAME = Math.ceil((STRIP_BUFFER_LENGTH / PACKET_SIZE))
+
+
+
+
+
+var frameTime = 17    
+
 
 var udpClient = dgram.createSocket('udp4');
-var id = setInterval(drawFrame, frameTime  );
+var id = setInterval(drawFrame, frameTime);
 var id = setInterval(sendFrame, frameTime);
 
-var packetBuffer = Buffer.alloc(UDP_PACKET_SIZE)
-var stripBuffer = Buffer.alloc(STRIP_LENGTH*3);
-var blankBuffer = Buffer.alloc(UDP_PACKET_SIZE);
+var packetBuffer = Buffer.alloc(MTU)
+var blankPacketBuffer = Buffer.alloc(MTU)
+var stripBuffer = Buffer.alloc(STRIP_BUFFER_LENGTH);
+var blankBuffer = Buffer.alloc(STRIP_BUFFER_LENGTH);
 var refreshBuffer = Buffer([0])
+
+var frameCount = 0;
 
 var ledLocation = 0
 var offset = 0
+
+
+
+var LOG_LEVEL = 2
+
+function log(level,t) {
+   // if (level == LOG_LEVEL) {
+        console.log(t)
+   // }
+}
+
+log(1,`${STRIP_LENGTH} Leds, taking up ${STRIP_BUFFER_LENGTH} bytes. Sending ${PACKETS_PER_FRAME} packets per frame. Each packet will be ${PACKET_SIZE}, storing ${CHUNK_SIZE} leds.`)
+
 
 function now(unit){
     var hrTime=process.hrtime(); 
@@ -34,37 +66,100 @@ function now(unit){
     }
 }
 
+
+
+function sendRefreshPacket(){
+  udpClient.send(refreshBuffer, 0, 1, PORT, HOST)
+  frameCount++;
+}
+
+function sendPacket(packetNumber) {
+    return ()=>{
+        return new Promise((resolve,reject)=>{
+
+            var currentOffset = packetNumber * PACKET_SIZE - PACKET_SIZE;
+            
+            blankPacketBuffer.copy(packetBuffer);
+            packetBuffer.writeUInt8(packetNumber, 0) //set the first byte to the ACTION byte
+            stripBuffer.copy(packetBuffer,1, currentOffset, currentOffset + PACKET_SIZE);
+           
+            log(1,"   frame:" + frameCount + "     packet:" + packetNumber + "   offset: " + currentOffset)
+            log(1,packetBuffer.toString('hex').substr(0,100))
+
+            udpClient.send(packetBuffer, 0, MTU, PORT, HOST, (err)=> {
+                if (err) {
+                    reject(err)
+                } else {
+                    resolve()
+                }
+            } )
+        })
+    }
+}
+
 function sendFrame() {
-    
-    packetBuffer.writeUInt8(1, 0)
-    stripBuffer.copy(packetBuffer,1,0);
-    //console.log(packetBuffer)
-    udpClient.send(packetBuffer, 0, UDP_PACKET_SIZE, PORT, HOST, (err)=>{
-        udpClient.send(refreshBuffer, 0, 1, PORT, HOST)
-    })
+
+    if (frameCount == 460) {
+        var a = 1
+    } 
+
+    log(1,"sending new frame:")
+    var go = Promise.resolve()
+
+    for (var i=1 ; i <= PACKETS_PER_FRAME  ; i++) {
+        go = go.then(sendPacket(i))
+    }
+
+    go.then(sendRefreshPacket)
+
+    frameCount++
+
 }
 
 function drawFrame(){
      //scrollRainbow(0.4,50,true)
-
-
-
     //scrollRainbow(5,15 ,true) //lots of interesting cycling gradients
     //filterWalk(20)
 
     //staticRainbow();
 
-    // red   = 100
-    // green = 50
-    // blue  = 30
-    // setAllStatic(red,blue,green)
-    //  filterWalk(30)
+    red   = 50
+    green = 50
+    blue  = 50  
+    setAllStatic(red,blue,green)
+    filterWalk(10)
 
     // gradientblend()
 
-    walk(10)
+    // //chunkTest(0)
+    // var c = 100
+    // setSingleLed(c,50,255,50)
+    // setSingleLed(c+1,50,255,50)
+    // setSingleLed(c+2,50,255,50)
+    // setSingleLed(c+3,50,255,50)
+    // setSingleLed(c+4,255,0,255)
+    // setSingleLed(c+5,50,255,50)
+    // setSingleLed(c+6,50,255,50)
+    // setSingleLed(c+7,50,255,50)
+    // setSingleLed(c+8,50,255,50)
 }
 
+
+function chunkTest(){
+    blankBuffer.copy(stripBuffer);
+
+    for (var i=1 ; i <= PACKETS_PER_FRAME  ; i++) { 
+        var currentOffset = i * PACKET_SIZE - PACKET_SIZE;
+
+                // console.log("strip buffer:");
+        for (var j = 0 ; j < 5 * 3 ; j = j + 3) {
+            stripBuffer.writeUInt8(7,currentOffset+j);
+            stripBuffer.writeUInt8(7,currentOffset+j+1);
+            stripBuffer.writeUInt8(7,currentOffset+j+2);
+
+        }
+    }
+}
 
 
 
@@ -83,22 +178,15 @@ function setAllStatic(red,blue,green){
     }
 }
 
-function walk(skip = 0){
-
-    blankBuffer.copy(stripBuffer);
-
-    console.log("strip buffer:");
-    stripBuffer.writeUInt8(100,ledLocation);
-    stripBuffer.writeUInt8(200,ledLocation+1);
-    stripBuffer.writeUInt8(255,ledLocation+2);
-
-    console.log("setting led at location " + ledLocation);
-
-    ledLocation = (ledLocation + 3) + (skip * 3);
-    if (ledLocation >= STRIP_LENGTH*3) {
-        ledLocation = 0
-    }
+function setSingleLed(ledIndex,r,g,b) {
+    log(2,`setting led ${ledIndex} to ${r} ${b} ${g}`)
+    var byte = ledIndex * BYTES_PER_LED;
+    stripBuffer.writeUInt8(r, byte);
+    stripBuffer.writeUInt8(r, byte+1);
+    stripBuffer.writeUInt8(r, byte+2);
 }
+
+
 
 function filterWalk(width = 70, speed = 2) {
 
@@ -107,8 +195,10 @@ function filterWalk(width = 70, speed = 2) {
         ledLocation = 0
     }
 
+
     for (var i = 0 ; i < STRIP_LENGTH; i++ ) {
         if ( i < ledLocation - width/2  ) {
+            // log(2,`setting led ${ledLocation} to `)
             
             stripBuffer.writeUInt8(0, i*3);
             stripBuffer.writeUInt8(0, i*3+1);
