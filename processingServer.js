@@ -9,14 +9,11 @@ var processingServer = function (HOST, PORT, cb) {
 
 	server.on('listening', function () {
 	    var address = server.address();
-	    console.log('UDP Server listening on ' + address.address + ":" + address.port);
+	    console.log('UDP Server listening for frame data on ' + address.address + ":" + address.port);
 	});
 
 	server.on('message', function (message, remote) {
 		msg = message.toString('hex')
-
-		var time = process.hrtime()
-
 
 		var options = {
 		  format: jpg.FORMAT_RGB,

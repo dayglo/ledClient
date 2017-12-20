@@ -31,7 +31,7 @@ var StripController = function (HOST, PORT, STRIP_LENGTH, FRAME_RATE) {
 	var offset = 0
 
 	function log(level,t) {
-		//console.log(t)
+		console.log(HOST + ":" + t)
 	}
 
 	function sendRefreshPacket(){
@@ -65,7 +65,7 @@ var StripController = function (HOST, PORT, STRIP_LENGTH, FRAME_RATE) {
 
 	function sendFrame() {
 
-		log(1,"sending new frame:")
+		//log(1,"sending new frame:")
 		var go = Promise.resolve()
 
 		for (var i=1 ; i <= PACKETS_PER_FRAME  ; i++) {
@@ -74,7 +74,6 @@ var StripController = function (HOST, PORT, STRIP_LENGTH, FRAME_RATE) {
 
 		go.then(sendRefreshPacket)
 
-		frameCount++
 	}
 
 	obj.setAllStatic = (red,blue,green) => {
@@ -104,6 +103,8 @@ var StripController = function (HOST, PORT, STRIP_LENGTH, FRAME_RATE) {
 		for (var i = 0 ; i < strip.length ; i++) {
 			try {
 				// console.log(red)
+
+				// this needs editing to copy strip into stripbuffer directly
 				stripBuffer.writeUInt8(strip[i][0], i*3);
 				stripBuffer.writeUInt8(strip[i][1], i*3+1);
 				stripBuffer.writeUInt8(strip[i][2], i*3+2);
@@ -112,6 +113,12 @@ var StripController = function (HOST, PORT, STRIP_LENGTH, FRAME_RATE) {
 			}
 		}
 	}
+
+	obj.updateBytes = (frame) => {
+		frame.copy(stripBuffer,0, 0, 600 );
+	}
+
+	obj.getStripBuffer = () => {return stripBuffer}
 
 	log(1,`${STRIP_LENGTH} Leds, taking up ${STRIP_BUFFER_LENGTH} bytes. Sending ${PACKETS_PER_FRAME} packets per frame. Each packet will be ${PACKET_SIZE}, storing ${CHUNK_SIZE} leds.`)
 	sendFrame();
